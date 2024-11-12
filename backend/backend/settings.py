@@ -113,11 +113,11 @@ ASGI_APPLICATION = 'backend.asgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'artflowdb',
-        'USER': 'serverapi',
-        'PASSWORD': 'localapi',
-        'HOST': 'localhost',  
-        'PORT': '3306',
+        'NAME': os.getenv('MYSQLDATABASE'),
+        'USER': os.getenv('MYSQLUSER'),
+        'PASSWORD': os.getenv('MYSQLPASSWORD'),
+        'HOST': os.getenv('MYSQLHOST'),  
+        'PORT': os.getenv('MYSQLPORT', '3306'),
          'OPTIONS': {
             'charset': 'utf8mb4',
             'use_unicode': True,
@@ -238,7 +238,8 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [("localhost", 6379)],
+            "hosts": [(os.getenv('REDISHOST'), os.getenv('REDISPORT'))],
+            "password": os.getenv('REDISPASSWORD'),
         },
     },
 }

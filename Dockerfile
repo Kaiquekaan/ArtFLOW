@@ -7,7 +7,8 @@ WORKDIR /app
 # Instalação de dependências do sistema
 RUN apt-get update && apt-get install -y \
     build-essential \
-    libmysqlclient-dev \
+    libmariadb-dev-compat \
+    libmariadb-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copia o projeto
