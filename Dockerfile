@@ -4,31 +4,38 @@ FROM python:3.10-slim
 # Diretório de trabalho
 WORKDIR /app
 
-# Instalação de dependências do sistema
+# Instalação de dependências do sistema (build-essential e dependências do MySQL)
 RUN apt-get update && apt-get install -y \
     build-essential \
     libmariadb-dev-compat \
     libmariadb-dev \
+    pkg-config \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copia o projeto
+# Instalar o pip mais recente
+RUN pip install --upgrade pip
+
+# Copiar os arquivos do projeto
 COPY . /app
 
-# Instalação das dependências do projeto
+# Instalar as dependências do projeto
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Configura variáveis de ambiente
+# Configuração de variáveis de ambiente
 ENV PYTHONUNBUFFERED=1 \
-    DJANGO_SETTINGS_MODULE=config.settings.production \
-    REDIS_URL=redis://localhost:6379/0
+    DJANGO_SETTINGS_MODULE=backend.backend.settings.production \
+    REDIS_URL=redis://redis:6379/0 
+
+
 
 # Criação de um usuário sem privilégios
-RUN adduser --disabled-password myuser
+RUN adduser --disabled-password --gecos '' myuser
 USER myuser
 
-# Comando para iniciar o servidor com Daphne
-ENTRYPOINT ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
-
-# Expondo a porta
+# Expor a porta do servidor
 EXPOSE 8000
+
+# Comando para iniciar o servidor com Daphne
+ENTRYPOINT ["daphne", "-b", "0.0.0.0", "-p", "8000", "backend.backend.asgi:application"]
