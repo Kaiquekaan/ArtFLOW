@@ -287,7 +287,7 @@ class RequestResetPasswordView(APIView):
 
             token = default_token_generator.make_token(user)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
-            frontend_url = f"http://localhost:5173/reset-password/{uid}/{token}"
+            frontend_url = f"https://artflow-web.netlify.app/reset-password/{uid}/{token}"
 
             # Renderiza o template HTML
             context = {
