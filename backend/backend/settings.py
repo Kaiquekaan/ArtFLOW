@@ -123,9 +123,9 @@ DJANGO_SETTINGS_MODULE = os.getenv('DJANGO_SETTINGS_MODULE')
 
 DATABASES = {
     'default': dj_database_url.config(
-        default=f"mysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST', 'localhost')}:{os.getenv('DB_PORT', '3306')}/{os.getenv('DB_NAME')}",
+        default=os.getenv('MYSQL_URL'),
         conn_max_age=600,
-        ssl_require=False
+        ssl_require=False  # Se você precisar de SSL, altere para True
     )
 }
 
