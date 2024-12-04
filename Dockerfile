@@ -2,7 +2,7 @@
 FROM python:3.10-slim
 
 # Diretório de trabalho
-WORKDIR /app
+WORKDIR /app/backend
 
 # Instalação de dependências do sistema (build-essential e dependências do MySQL)
 RUN apt-get update && apt-get install -y \
