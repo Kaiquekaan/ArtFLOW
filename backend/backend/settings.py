@@ -125,7 +125,7 @@ DATABASES = {
     'default': dj_database_url.config(
         default=os.getenv('MYSQL_URL'),
         conn_max_age=600,
-        ssl_require=False  # Se você precisar de SSL, altere para True
+        ssl_require=True  # Se você precisar de SSL, altere para True
     )
 }
 
