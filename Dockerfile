@@ -24,10 +24,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Configuração de variáveis de ambiente
-ENV PYTHONUNBUFFERED=1 \
-    DJANGO_SETTINGS_MODULE=backend.backend.settings.production \
-    REDIS_URL=redis://redis:6379/0 
+ENV PYTHONUNBUFFERED=1 
+ENV DJANGO_SETTINGS_MODULE=backend.settings 
+ENV REDIS_URL=redis://redis:6379/0 
 
+ENV PYTHONPATH=/app
 
 
 # Criação de um usuário sem privilégios
@@ -37,5 +38,5 @@ USER myuser
 # Expor a porta do servidor
 EXPOSE 8000
 
-# Comando para iniciar o servidor com Daphne
-ENTRYPOINT ["daphne", "-b", "0.0.0.0", "-p", "8000", "backend.backend.asgi:application"]
+# Comando para iniciar o servidor com Gunicorn
+CMD ["gunicorn", "--workers=4", "--bind=0.0.0.0:8000", "backend.asgi:application", "-k", "uvicorn.workers.UvicornWorker"]

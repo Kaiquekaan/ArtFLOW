@@ -18,7 +18,8 @@ INTERACTION_SCORES = {
     'like': 1,
     'comment': 2,
     'favorite': 3,
-    'view': 0.5  
+    'view': 0.5,
+    'share': 5,  
 }
 
 def save_model(algo, filename='svd_model.pkl'):

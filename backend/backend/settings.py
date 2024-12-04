@@ -14,11 +14,15 @@ from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
 import os
-import cloudinary
-import cloudinary.uploader
-import cloudinary.api
+from functools import lru_cache
+import dj_database_url
 
 
+@lru_cache()
+def import_cloudinary():
+    import cloudinary
+    import cloudinary.uploader
+    import cloudinary.api
 
 load_dotenv()
 
@@ -73,6 +77,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'channels',
+    'cloudinary',
+    'cloudinary_storage',
 ]
 
 MIDDLEWARE = [
@@ -110,23 +116,17 @@ TEMPLATES = [
 
 ASGI_APPLICATION = 'backend.asgi.application'
 
+DJANGO_SETTINGS_MODULE = os.getenv('DJANGO_SETTINGS_MODULE')
+
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('MYSQLDATABASE'),
-        'USER': os.getenv('MYSQLUSER'),
-        'PASSWORD': os.getenv('MYSQLPASSWORD'),
-        'HOST': os.getenv('MYSQLHOST'),  
-        'PORT': os.getenv('MYSQLPORT', '3306'),
-         'OPTIONS': {
-            'charset': 'utf8mb4',
-            'use_unicode': True,
-            'autocommit': True,
-        },
-    }
+    'default': dj_database_url.config(
+        default=f"mysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST', 'localhost')}:{os.getenv('DB_PORT', '3306')}/{os.getenv('DB_NAME')}",
+        conn_max_age=600,
+        ssl_require=False
+    )
 }
 
 
@@ -218,6 +218,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 BACKEND_URL = 'http://localhost:8000'
 
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3001") 
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
@@ -227,23 +229,19 @@ EMAIL_HOST_PASSWORD = 'zogf grmb xeup deyn'  # Gere uma senha de app no Gmail
 DEFAULT_FROM_EMAIL = 'noreply.artflow@gmail.com'
 
 
-cloudinary.config( 
-  cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME'), 
-  api_key = os.getenv('CLOUDINARY_API_KEY'), 
-  api_secret = os.getenv('CLOUDINARY_API_SECRET') 
-)
+CLOUDINARY_STORAGE = {
+    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET') ,
+    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
+}
 
-
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.RawMediaCloudinaryStorage'
 
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [(os.getenv('REDISHOST'), os.getenv('REDISPORT'))],
-            "password": os.getenv('REDISPASSWORD'),
+            "hosts": [(os.getenv("REDIS_HOST", "127.0.0.1"), int(os.getenv("REDIS_PORT", 6379)))],
         },
     },
 }
-
-

@@ -1,5 +1,5 @@
 from django.db.models import Count
-from .models import Follower, Notification, UserData, FriendRequest, Comment, Interaction, Post  # Supondo que você tenha um model Follow
+from .models import Follower, Notification, UserData, FriendRequest, Comment, Interaction, Post, SharedPost  # Supondo que você tenha um model Follow
 from rest_framework.exceptions import NotFound
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from backend.recommendation_service import *
@@ -209,6 +209,7 @@ class PostInteractionService:
     @staticmethod
     def share_post(user, post):
         # Lógica de compartilhamento (dependendo da implementação de compartilhamento)
+        SharedPost.objects.create(user=user, post=post)
         PostInteractionService._save_interaction(user, post, 'share')
         return "shared"
 

@@ -114,6 +114,7 @@ class PostSerializer(serializers.ModelSerializer):
     likes_count = serializers.SerializerMethodField()
     favorites_count = serializers.SerializerMethodField()
     comments_count = serializers.IntegerField(read_only=True)
+    shares_count = serializers.IntegerField(source='shares.count', read_only=True)
     user_username = serializers.CharField(source='user.username', read_only=True) 
     user_displayname = serializers.CharField(source='user.userdata.displayname', read_only=True)   
     user_tag = serializers.CharField(source='user.userdata.user_tag', read_only=True)  
@@ -126,7 +127,7 @@ class PostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = ['id', 'user', 'caption', 'created_at', 'is_sensitive', 'is_private', 
-                  'likes_count','favorites_count', 'comments_count', 'media_files',
+                  'likes_count','favorites_count', 'comments_count','shares_count', 'media_files',
                   'user_username', 'user_displayname', 'user_tag', 'profile_picture', 'has_liked', 'has_favorited', 'last_edited_at', 'hashtags']  # Não esqueça de adicionar os novos campos aqui
 
     def get_likes_count(self, obj):
@@ -407,7 +408,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ['sender_username', 'sender_displayname','profile_picture_url', 'content', 'timestamp'] 
+        fields = ['id','sender_username', 'sender_displayname','profile_picture_url', 'content', 'timestamp', 'is_read', 'last_edited_at'] 
 
     def get_profile_picture_url(self, obj):
         return obj.sender.userdata.profile_picture_url

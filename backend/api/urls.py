@@ -7,6 +7,7 @@ router = DefaultRouter()
 router.register(r'user', UserViewSet, basename='user')
 router.register(r'posts', PostViewSet)
 router.register(r'comments', CommentViewSet)
+router.register(r'messages', MessageViewSet, basename='message')
 
 
 urlpatterns = [
@@ -23,7 +24,7 @@ urlpatterns = [
     path('remove-or-reject-friend/<int:target_user_id>/', RejectOrRemoveFriendView.as_view(), name='send_friend_request'),
     path('accept-friend-request/<int:notification_id>/', AcceptFriendRequestView.as_view(), name='accept_friend_request'),
     path('friends/', FriendsListView.as_view(), name='friends-list'),
-    path('messages/<str:room_name>/', MessageHistoryView.as_view(), name='message-history'),
+    path('messages/history/<str:room_name>/', MessageHistoryView.as_view(), name='message-history'),
     path('delete-notification/<int:notification_id>/', DeleteNotificationView.as_view(), name='delete_notification'),
     path('notifications/mark-all-as-read/', MarkAllAsReadNotificationAsReadView.as_view(), name='mark_all_notifications_as_read'),
     path('profile/', UserProfileView.as_view(), name='user_profile'),
@@ -50,6 +51,7 @@ urlpatterns = [
     path('posts/<int:post_id>/comment/', CommentPostView.as_view(), name='comment_post'),
     path('posts/<int:post_id>/comments/', PostCommentsView.as_view(), name='comment_post'),
     path('posts/<int:post_id>/like/', LikePostView.as_view(), name='like_post'),
+    path('posts/<int:post_id>/share/', SharePostView.as_view(), name='share_post'),
     path('comments/<int:comment_id>/like/', LikeCommentView.as_view(), name='like_comment'),
     path('comments/<int:comment_id>/reply/', ReplyToCommentView.as_view(), name='reply_comment'),
     path('posts/<int:post_id>/favorite/', FavoritePostView.as_view(), name='favorite_post'),

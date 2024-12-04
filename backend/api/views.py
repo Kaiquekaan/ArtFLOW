@@ -18,7 +18,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from cloudinary.uploader import upload
 from rest_framework.pagination import PageNumberPagination
-from .models import UserData, Post, PostMedia, Comment, FriendRequest, Notification, Room, Message
+from .models import UserData, Post, PostMedia, Comment, FriendRequest, Notification, Room, Message, HiddenMessage
 from .services import NotificationService, FriendService, PostInteractionService, PostService
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
@@ -32,6 +32,7 @@ import json
 import base64
 import logging
 logger = logging.getLogger(__name__)
+from django.conf import settings
 
 
 
@@ -720,6 +721,21 @@ class FavoritePostView(APIView):
             return Response({"status": result}, status=status.HTTP_200_OK)
         except Post.DoesNotExist:
             return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+class SharePostView(APIView):
+    def post(self, request, post_id):
+        user = request.user
+        try:
+            post = Post.objects.get(id=post_id)
+            # Registra o compartilhamento
+            PostInteractionService.share_post(user, post)
+            # Gera o link do compartilhamento
+            share_link = f"{settings.FRONTEND_URL}/post/{post_id}/view"
+            return Response({"share_link": share_link}, status=status.HTTP_201_CREATED)
+        except Post.DoesNotExist:
+            return Response({"error": "Post não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CommentPostView(APIView):
@@ -1270,8 +1286,100 @@ class MessageHistoryView(APIView):
     def get(self, request, room_name):
         try:
             room = Room.objects.get(name=room_name)
-            messages = Message.objects.filter(room=room).order_by('timestamp')  # Ordena por data
+            user = request.user
+            # Aplica o filtro para excluir mensagens ocultadas pelo usuário
+            messages = Message.objects.filter(room=room).exclude(hiddenmessage__user=user).order_by('timestamp')
             serializer = MessageSerializer(messages, many=True)
             return Response(serializer.data)
         except Room.DoesNotExist:
             return Response({"error": "Room not found"}, status=404)
+        
+
+class MessageViewSet(viewsets.ModelViewSet):
+    queryset = Message.objects.all()
+    serializer_class = MessageSerializer
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+
+    def get_queryset(self):
+        user = self.request.user
+        # Lista todas as mensagens não ocultadas pelo usuário
+        return Message.objects.exclude(hiddenmessage__user=user)
+    
+
+    def update(self, request, *args, **kwargs):
+        message = self.get_object()
+        
+        # Atualizar apenas o conteúdo e registrar a edição
+        if request.user == message.sender:
+            message.content = request.data.get('content', message.content)
+            message.last_edited_at = timezone.now()
+            message.save()
+
+            room_name = message.room.name
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f"chat_{room_name}",
+                {
+                    "type": "message_edited",
+                    "message": {
+                        "id": message.id,
+                        "content": message.content,
+                        "timestamp": message.timestamp.isoformat(),
+                        "last_edited_at": message.last_edited_at.isoformat() if message.last_edited_at else None,
+                    },
+                },
+            )
+
+            return Response(self.get_serializer(message).data)
+        else:
+            return Response({"detail": "Permissão negada."}, status=status.HTTP_403_FORBIDDEN)
+
+    def destroy(self, request, *args, **kwargs):
+        message = self.get_object()
+        if request.user == message.sender:
+            room_name = message.room.name  # Certifique-se de que `room` está configurado corretamente no modelo Message
+            message_id = message.id
+            message.delete()
+            
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f"chat_{room_name}",  # Agora `room_name` está definido
+                {
+                    "type": "message_deleted",
+                    "message_id": message_id,  # Envie apenas o ID da mensagem excluída
+                },
+            )
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({"detail": "Permissão negada."}, status=status.HTTP_403_FORBIDDEN)
+        
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def hide(self, request, pk=None):
+        try:
+            message = self.get_object()
+            HiddenMessage.objects.get_or_create(user=request.user, message=message)
+            return Response({"detail": "Mensagem ocultada com sucesso."}, status=status.HTTP_200_OK)
+        except Message.DoesNotExist:
+            return Response({"detail": "Mensagem não encontrada."}, status=status.HTTP_404_NOT_FOUND)
+        
+    
+        
+
+class HideMessageView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        message_id = kwargs.get('pk')
+        try:
+            message = Message.objects.get(pk=message_id)
+            # Cria um registro indicando que o usuário ocultou a mensagem
+            HiddenMessage.objects.get_or_create(user=request.user, message=message)
+            return Response({"detail": "Mensagem ocultada com sucesso."}, status=status.HTTP_200_OK)
+        except Message.DoesNotExist:
+            return Response({"detail": "Mensagem não encontrada."}, status=status.HTTP_404_NOT_FOUND)

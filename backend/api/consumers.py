@@ -9,6 +9,8 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.core.exceptions import ObjectDoesNotExist
 from asgiref.sync import sync_to_async
+from django.utils.timezone import now
+from datetime import timedelta
 
 
 
@@ -121,35 +123,80 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
-        
-        
-        # Enviar a mensagem para o grupo WebSocket
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'send_message',  # Chama o método send_message
-                'message': data,
-            }
-        )
+        sender_id = data.get('sender')
+        message_content = data.get('message')
+        room_name = data.get('room_name')
 
-       
+        # Evitar mensagens duplicadas
+        room = await database_sync_to_async(Room.objects.get_or_create)(name=room_name)
+        if await self.is_duplicate_message(room[0], message_content, sender_id):
+            print("Mensagem duplicada detectada.")
+            return
+
+        # Criar a mensagem no banco de dados
+        message = await self.create_message(data)
+
+        # Serializar e enviar a mensagem ao grupo
+        if message:
+            serialized_data = await database_sync_to_async(lambda: MessageSerializer(message).data)()
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'new_message',
+                    'message': serialized_data,
+                    'origin': [self.channel_name],  # Adiciona o canal de origem
+                }
+            )
+
+    
+    @database_sync_to_async
+    def is_duplicate_message(self, room, message_content, sender_id):
+        # Verifica se já existe uma mensagem idêntica nos últimos 2 segundos
+        time_threshold = now() - timedelta(seconds=2)
+        return Message.objects.filter(
+            content=message_content, 
+            room=room, 
+            sender_id=sender_id,
+            timestamp__gte=time_threshold  # Verifica mensagens recentes
+        ).exists()
         
 
     async def send_message(self, event):
         data = event['message']
-        print(f"Enviando mensagem recebida do frontend para o grupo: {data}")
         res_data = await self.create_message(data=data)
 
         if res_data:
-            # Serializa a mensagem criada
             serialized_data = await database_sync_to_async(lambda: MessageSerializer(res_data).data)()
-            print('Enviando para o frontend:', serialized_data)
-            await self.send(text_data=json.dumps({'message': serialized_data}))
-        #else:
-            # print("Erro: Mensagem não foi criada corretamente.")
+            print("Enviando mensagem serializada para o frontend:", serialized_data)
 
+            # Enviar mensagem diretamente para o frontend (sem duplicar)
+            await self.send(text_data=json.dumps({'message': serialized_data}))
+
+
+    async def new_message(self, event):
+        # Certifique-se de que o cliente receba apenas uma mensagem
         
 
+        await self.send(text_data=json.dumps({
+            'type': 'new_message',
+            'message': event['message']}))
+        print(f"Mensagem enviada para o cliente: {event['message']}")
+
+
+    async def message_edited(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "message_edited",
+            "message": event["message"],
+        }))
+
+    async def message_deleted(self, event):
+        message_id = event['message_id']
+
+        # Envia a mensagem de exclusão para o WebSocket do cliente
+        await self.send(text_data=json.dumps({
+            'type': 'message_deleted',
+            'message_id': message_id
+        }))
 
     @database_sync_to_async
     def get_user(self, user_id):
@@ -161,8 +208,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def create_message(self, data):
-        room, created = Room.objects.get_or_create(name=data['room_name'])
-        if not Message.objects.filter(content=data['message'], room=room).exists():
-            sender = User.objects.get(id=data['sender'])  
-            new_message = Message.objects.create(room=room, sender=sender, content=data['message'])
-            return new_message
+        room, _ = Room.objects.get_or_create(name=data['room_name'])
+        sender = User.objects.get(id=data['sender'])
+        return Message.objects.create(room=room, sender=sender, content=data['message'])

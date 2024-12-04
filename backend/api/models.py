@@ -178,13 +178,22 @@ class Comment(models.Model):
     def likes_count(self):
         return self.likes.count()
     
+class SharedPost(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="shares")
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user} shared {self.post}"
+    
 
 class Interaction(models.Model):
     INTERACTION_TYPES = [
         ('view', 'View'),
         ('like', 'Like'),
         ('comment', 'Comment'),
-        ('favorite', 'Favorite')  # Novo tipo de interação
+        ('favorite', 'Favorite'),
+        ('share', 'Share')  # Novo tipo de interação
     ]
         
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -207,3 +216,10 @@ class Message(models.Model):
     content = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
+    last_edited_at = models.DateTimeField(null=True, blank=True)
+
+
+class HiddenMessage(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = models.ForeignKey(Message, on_delete=models.CASCADE)
+    hidden_at = models.DateTimeField(auto_now_add=True)
